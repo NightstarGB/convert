@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NS's Image Converter</title>
+  <link rel="stylesheet" href="designed.css">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <aside class="sidebar">
+      <div class="upload-row">
+        <button class="upload-btn" id="upload-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <line x1="9" y1="15" x2="12" y2="12"></line>
+            <line x1="15" y1="15" x2="12" y2="12"></line>
+          </svg>
+          UPLOAD
+        </button>
+
+        <button class="upload-btn" id="paste-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          PASTE
+        </button>
+      </div>
+
+      <input type="file" id="fileInput" accept="image/*" style="display: none;">
+      
+      <div class="preview-wrapper">
+        <span class="preview-label" id="label-top">.PNG</span>
+        <div class="preview-box" id="preview-top"></div>
+      </div>
+      
+      <div class="arrow-down">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+      </div>
+      
+      <div class="preview-wrapper">
+        <span class="preview-label" id="label-bottom">.WEBP</span>
+        <div class="preview-box" id="preview-bottom"></div>
+      </div>
+
+      <button class="action-btn" id="download-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        DOWNLOAD
+      </button>
+      
+      <button class="action-btn" id="preview-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        PREVIEW
+      </button>
+      
+      <div class="control-group">
+        <div class="size-row">
+          <div class="size-box text-red" id="size-original">0B</div>
+          <span class="size-arrow text-green">➔</span>
+          <div class="size-box text-green" id="size-converted">0B</div>
+        </div>
+      </div>
+      
+      <div class="control-group" id="quality-group">
+        <label>QUALITY</label>
+        <div class="slider-container">
+          <span class="slider-value" id="quality-val">100%</span>
+          <input type="range" class="styled-slider" id="quality-slider" min="1" max="100" value="100">
+        </div>
+      </div>
+      
+      <div class="control-group" id="effort-group">
+        <label>EFFORT</label>
+        <div class="slider-container">
+          <span class="slider-value" id="effort-val">6</span>
+          <input type="range" class="styled-slider" id="effort-slider" min="0" max="6" value="6">
+        </div>
+      </div>
+
+      <div class="sidebar-footer">v1.0.0 - Beta</div>
+    </aside>
+
+    <main class="main-content">
+      <input type="text" class="search-bar" placeholder="Search">
+      
+      <div id="view-format">
+        <h3 class="section-title">IMAGE</h3>
+          <div class="format-grid">
+          <button class="format-btn" data-ext=".png">.PNG</button>
+          <button class="format-btn" data-ext=".jpg">.JPG</button>
+          <button class="format-btn active" data-ext=".webp">.WEBP</button>
+          <button class="format-btn" data-ext=".avif">.AVIF</button>
+          <button class="format-btn" data-ext=".gif">.GIF</button>
+          <button class="format-btn" data-ext=".tiff">.TIFF</button>
+          <button class="format-btn" data-ext=".psd">.PSD</button>
+        </div>
+      </div>
+
+      <div id="view-preview" style="display: none;">
+        <h3 class="section-title">PREVIEW</h3>
+        <div class="compare-wrapper" id="compare-wrapper" style="--pos: 50%;">
+
+          <div class="compare-img compare-original" id="compare-original">
+            <span class="compare-tag right" id="compare-tag-right">.PNG</span>
+          </div>
+
+          <div class="compare-img compare-converted" id="compare-converted">
+            <span class="compare-tag left" id="compare-tag-left">.WEBP</span>
+          </div>
+          
+          <div class="compare-slider-line"></div>
+          <input type="range" class="compare-range" id="compare-range" min="0" max="100" value="50">
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <script src="convert.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>
