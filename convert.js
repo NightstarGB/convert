@@ -44,6 +44,7 @@ const searchBar = document.querySelector('.search-bar');
 let currentImg = null;
 let currentBlob = null;
 let currentFile = null;
+let currentTextContent = null;
 let originalName = 'image';
 let currentFormat = 'image/webp';
 let currentExtension = '.webp';
@@ -138,6 +139,127 @@ previewBtn?.addEventListener('click', () => {
 });
 
 uploadBtn?.addEventListener('click', () => fileInput?.click());
+
+function isTextFile(file) {
+  return file?.type === 'text/plain' || /\.txt$/i.test(file?.name || '');
+}
+
+function drawTextFrame(ctx, text, width, height) {
+  ctx.fillStyle = '#09090b';
+  ctx.fillRect(0, 0, width, height);
+
+  const fontSize = Math.max(18, Math.min(42, Math.round(width / 32)));
+  const lineHeight = Math.round(fontSize * 1.45);
+  const horizontalPadding = Math.round(width * 0.08);
+  const maxWidth = width - horizontalPadding * 2;
+  ctx.font = `${fontSize}px monospace`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  const lines = [];
+  for (const paragraph of text.replace(/\r\n/g, '\n').split('\n')) {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      lines.push('');
+      continue;
+    }
+
+    let line = '';
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(candidate).width > maxWidth) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    if (line) lines.push(line);
+  }
+
+  const visibleLines = lines.length || 1;
+  const startY = Math.max(24, (height - visibleLines * lineHeight) / 2);
+  lines.forEach((line, index) => {
+    ctx.fillText(line, width / 2, startY + index * lineHeight);
+  });
+}
+
+async function convertTextToVideo() {
+  if (currentTextContent === null || currentFormat !== 'video/mp4') return;
+
+  const targetHeight = parseInt(videoResSelect?.value) || 720;
+  const targetWidth = Math.round((targetHeight * 16) / 9);
+  const targetFps = 30;
+  const start = Math.max(0, parseInt(trimStart?.value) || 0);
+  const end = Math.max(start + 0.1, parseInt(trimEnd?.value) || 5);
+  const duration = Math.max(0.1, end - start);
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  if (!canvas.captureStream || !window.MediaRecorder) {
+    updateConversionStatus('Failed');
+    alert('Text-to-video conversion is not supported in this browser.');
+    return;
+  }
+
+  updateConversionStatus('Encoding...');
+  sizeConverted.textContent = '0B';
+  const ctx = canvas.getContext('2d');
+  drawTextFrame(ctx, currentTextContent, canvas.width, canvas.height);
+  const stream = canvas.captureStream(targetFps);
+  const mimeType = MediaRecorder.isTypeSupported('video/mp4;codecs=h264')
+    ? 'video/mp4;codecs=h264'
+    : 'video/webm';
+  const recorder = new MediaRecorder(stream, {
+    mimeType,
+    videoBitsPerSecond: (parseInt(bitrateSlider?.value) || 1500) * 1000
+  });
+  const chunks = [];
+  let recordedBytes = 0;
+
+  const recordingFinished = new Promise((resolve, reject) => {
+    recorder.ondataavailable = (event) => {
+      if (!event.data?.size) return;
+      chunks.push(event.data);
+      recordedBytes += event.data.size;
+      sizeConverted.textContent = formatBytes(recordedBytes);
+    };
+    recorder.onerror = () => reject(new Error('Text-to-video recording failed.'));
+    recorder.onstop = resolve;
+  });
+
+  recorder.start(100);
+  const startedAt = performance.now();
+  const renderLoop = () => {
+    if (performance.now() - startedAt >= duration * 1000) {
+      if (recorder.state !== 'inactive') recorder.stop();
+      stream.getTracks().forEach(track => track.stop());
+      return;
+    }
+    drawTextFrame(ctx, currentTextContent, canvas.width, canvas.height);
+    requestAnimationFrame(renderLoop);
+  };
+  renderLoop();
+
+  try {
+    await recordingFinished;
+    currentBlob = new Blob(chunks, { type: mimeType });
+    currentExtension = mimeType.startsWith('video/mp4') ? '.mp4' : '.webm';
+    labelBottom.textContent = currentExtension.toUpperCase();
+    if (compareTagLeft) compareTagLeft.textContent = currentExtension.toUpperCase();
+    sizeConverted.textContent = formatBytes(currentBlob.size);
+    updateConversionStatus('Done');
+
+    const blobUrl = URL.createObjectURL(currentBlob);
+    previewBottom.style.backgroundImage = `url('${blobUrl}')`;
+    if (compareConverted) compareConverted.style.backgroundImage = `url('${blobUrl}')`;
+  } catch (error) {
+    updateConversionStatus('Failed');
+    alert(error.message);
+  }
+}
 
 async function processVideo() {
   const processingFile = currentFile;
@@ -263,6 +385,11 @@ async function processVideo() {
 }
 
 async function processImage() {
+  if (isTextFile(currentFile) && currentFormat === 'video/mp4') {
+    convertTextToVideo();
+    return;
+  }
+
   if (currentFile?.type.startsWith('video/') && currentFormat === 'video/mp4') {
     processVideo();
     return;
@@ -408,6 +535,7 @@ searchBar?.addEventListener('input', (e) => {
 function handleIncomingImage(file) {
   if (!file) return;
   currentFile = file;
+  currentTextContent = null;
   updateConversionStatus('Ready');
 
   const dotIdx = file.name ? file.name.lastIndexOf('.') : -1;
@@ -417,13 +545,33 @@ function handleIncomingImage(file) {
     ? file.name.substring(dotIdx).toUpperCase() 
     : '.' + (file.type ? file.type.split('/')[1].toUpperCase() : 'FILE');
 
-  labelTop.textContent = inputExt;
+  labelTop.textContent = isTextFile(file) ? '.TXT' : inputExt;
   if (compareTagRight) compareTagRight.textContent = inputExt;
   sizeOriginal.textContent = formatBytes(file.size);
 
   originalObjUrl = URL.createObjectURL(file);
 
-  if (file.type.startsWith('image/')) {
+  if (isTextFile(file)) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      currentTextContent = String(reader.result || '');
+      labelTop.textContent = '.TXT';
+      sizeOriginal.textContent = formatBytes(file.size);
+      currentBlob = file;
+      sizeConverted.textContent = formatBytes(file.size);
+      setupVideoDurations(5);
+      previewTop.style.backgroundImage = 'none';
+      previewBottom.style.backgroundImage = 'none';
+      if (compareOriginal) compareOriginal.style.backgroundImage = 'none';
+      if (compareConverted) compareConverted.style.backgroundImage = 'none';
+      if (currentFormat === 'video/mp4') convertTextToVideo();
+    };
+    reader.onerror = () => {
+      updateConversionStatus('Failed');
+      alert('Unable to read the text file.');
+    };
+    reader.readAsText(file);
+  } else if (file.type.startsWith('image/')) {
     const bgStyle = `url('${originalObjUrl}')`;
     previewTop.style.backgroundImage = bgStyle;
     if (compareOriginal) compareOriginal.style.backgroundImage = bgStyle;
