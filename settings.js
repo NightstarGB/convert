@@ -7,38 +7,37 @@ formatBtns.forEach(btn => {
 
     const ext = targetBtn.textContent.trim().toLowerCase();
     currentExtension = ext;
-    
+
     labelBottom.textContent = ext.toUpperCase();
-    if (compareTagLeft) {
-      compareTagLeft.textContent = ext.toUpperCase();
-    }
+    if (compareTagLeft) compareTagLeft.textContent = ext.toUpperCase();
+
+    // Default visibility resets
+    qualityGroup.classList.add('hidden');
+    effortGroup.classList.add('hidden');
+    mp4Controls.classList.add('hidden');
 
     if (ext === '.jpg') {
       currentFormat = 'image/jpeg';
       qualityGroup.classList.remove('hidden');
-      effortGroup.classList.add('hidden');
     } else if (ext === '.webp') {
       currentFormat = 'image/webp';
       qualityGroup.classList.remove('hidden');
       effortGroup.classList.remove('hidden');
+    } else if (ext === '.mp4') {
+      currentFormat = 'video/mp4';
+      mp4Controls.classList.remove('hidden'); // Reveal Video Settings
+    } else if (ext === '.mp3') {
+      currentFormat = 'audio/mp3';
+    } else if (ext === '.txt') {
+      currentFormat = 'text/plain';
     } else if (ext === '.gif') {
       currentFormat = 'image/gif';
-      qualityGroup.classList.add('hidden');
-      effortGroup.classList.add('hidden');
     } else if (ext === '.tiff') {
       currentFormat = 'image/tiff';
-      qualityGroup.classList.add('hidden');
-      effortGroup.classList.add('hidden');
     } else if (ext === '.psd') {
-
-    currentFormat = 'image/vnd.adobe.photoshop';
-      qualityGroup.classList.add('hidden');
-      effortGroup.classList.add('hidden');
+      currentFormat = 'image/vnd.adobe.photoshop';
     } else {
-
-      currentFormat = ext === '.png' ? 'image/png' : 'image/avif';
-      qualityGroup.classList.add('hidden');
-      effortGroup.classList.add('hidden');
+      currentFormat = 'image/png';
     }
 
     processImage();

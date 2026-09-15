@@ -10,6 +10,7 @@
   <div class="app-container">
     
     <aside class="sidebar">
+      
       <div class="upload-row">
         <button class="upload-btn" id="upload-btn">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -31,8 +32,8 @@
         </button>
       </div>
 
-      <input type="file" id="fileInput" accept="image/*" style="display: none;">
-      
+     <input type="file" id="fileInput" accept="image/*,video/*,audio/*,.txt" style="display: none;">  
+         
       <div class="preview-wrapper">
         <span class="preview-label" id="label-top">.PNG</span>
         <div class="preview-box" id="preview-top"></div>
@@ -63,6 +64,7 @@
           <span class="size-arrow text-green">➔</span>
           <div class="size-box text-green" id="size-converted">0B</div>
         </div>
+        <div class="conversion-status" id="conversion-status" aria-live="polite">Ready</div>
       </div>
       
       <div class="control-group" id="quality-group">
@@ -81,6 +83,29 @@
         </div>
       </div>
 
+      <div id="mp4-controls" class="control-group hidden">
+        <label>RESOLUTION</label>
+        <div class="slider-container">
+          <select id="video-res-select" class="styled-select">
+            <option value="1080">1080p (FHD)</option>
+            <option value="720" selected>720p (HD)</option>
+            <option value="144">144p (Fast)</option>
+          </select>
+        </div>
+
+        <label style="margin-top: 6px;">TRIM (<span id="trim-val">0:00 - 0:30</span>)</label>
+        <div class="slider-container dual-range-box">
+          <input type="range" id="trim-start" min="0" max="60" value="0" class="styled-slider">
+          <input type="range" id="trim-end" min="0" max="60" value="30" class="styled-slider">
+        </div>
+
+        <label style="margin-top: 6px;">REDUCE SIZE</label>
+        <div class="slider-container">
+          <span class="slider-value" id="bitrate-val">Medium (1.5 Mbps)</span>
+          <input type="range" class="styled-slider" id="bitrate-slider" min="200" max="5000" step="100" value="1500">
+        </div>
+      </div>
+
       <div class="sidebar-footer">v1.0.0 - Beta</div>
     </aside>
 
@@ -88,16 +113,41 @@
       <input type="text" class="search-bar" placeholder="Search">
       
       <div id="view-format">
-        <h3 class="section-title">IMAGE</h3>
+        
+        <div class="category-block">
+          <h3 class="section-title">IMAGE</h3>
           <div class="format-grid">
-          <button class="format-btn" data-ext=".png">.PNG</button>
-          <button class="format-btn" data-ext=".jpg">.JPG</button>
-          <button class="format-btn active" data-ext=".webp">.WEBP</button>
-          <button class="format-btn" data-ext=".avif">.AVIF</button>
-          <button class="format-btn" data-ext=".gif">.GIF</button>
-          <button class="format-btn" data-ext=".tiff">.TIFF</button>
-          <button class="format-btn" data-ext=".psd">.PSD</button>
+            <button class="format-btn" data-ext=".png">.PNG</button>
+            <button class="format-btn" data-ext=".jpg">.JPG</button>
+            <button class="format-btn active" data-ext=".webp">.WEBP</button>
+            <button class="format-btn" data-ext=".avif">.AVIF</button>
+            <button class="format-btn" data-ext=".gif">.GIF</button>
+            <button class="format-btn" data-ext=".tiff">.TIFF</button>
+            <button class="format-btn" data-ext=".psd">.PSD</button>
+          </div>
         </div>
+
+        <div class="category-block">
+          <h3 class="section-title">VIDEO</h3>
+          <div class="format-grid">
+            <button class="format-btn" data-ext=".mp4">.MP4</button>
+          </div>
+        </div>
+
+        <div class="category-block">
+          <h3 class="section-title">AUDIO</h3>
+          <div class="format-grid">
+            <button class="format-btn" data-ext=".mp3">.MP3</button>
+          </div>
+        </div>
+
+        <div class="category-block">
+          <h3 class="section-title">DOCUMENT</h3>
+          <div class="format-grid">
+            <button class="format-btn" data-ext=".txt">.TXT</button>
+          </div>
+        </div>
+
       </div>
 
       <div id="view-preview" style="display: none;">

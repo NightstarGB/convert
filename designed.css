@@ -138,6 +138,13 @@ body {
 .text-green { color: #4ade80; }
 .size-arrow { font-size: 14px; }
 
+.conversion-status {
+  color: #a1a1aa;
+  font-size: 12px;
+  min-height: 16px;
+  text-align: center;
+}
+
 .slider-container {
   background-color: #000;
   border: 1px solid #27272a;
@@ -338,4 +345,30 @@ body {
   justify-content: center;
   gap: 6px;
   padding: 10px 8px;
+}
+
+.styled-select {
+  width: 100%;
+  background-color: #000;
+  border: 1px solid #27272a;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: bold;
+  outline: none;
+  cursor: pointer;
+}
+.styled-select:focus {
+  border-color: #52525b;
+}
+
+.dual-range-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: #000;
+  border: 1px solid #27272a;
+  padding: 10px;
+  border-radius: 4px;
 }
