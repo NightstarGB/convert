@@ -36,13 +36,49 @@ const trimVal = document.getElementById('trim-val');
 const bitrateSlider = document.getElementById('bitrate-slider');
 const bitrateVal = document.getElementById('bitrate-val');
 const videoResSelect = document.getElementById('video-res-select');
+const fpsSlider = document.getElementById('fps-slider');
+const fpsVal = document.getElementById('fps-val');
+const pasteBtn = document.getElementById('paste-btn');
+const searchBar = document.querySelector('.search-bar');
+
+let currentImg = null;
+let currentBlob = null;
+let currentFile = null;
+let originalName = 'image';
+let currentFormat = 'image/webp';
+let currentExtension = '.webp';
+let originalObjUrl = null;
+
+// Cache encoded video cuts to avoid unnecessary re-encoding
+const videoCache = {};
+
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '0B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return (bytes / Math.pow(k, i)).toFixed(2) + sizes[i];
+}
+
+function updateConversionStatus(status) {
+  if (conversionStatus) conversionStatus.textContent = status;
+}
 
 function updateTrimDisplay() {
-  const startSec = parseInt(trimStart.value);
-  const endSec = parseInt(trimEnd.value);
-  
+  const startSec = parseInt(trimStart?.value) || 0;
+  const endSec = parseInt(trimEnd?.value) || 0;
   const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
-  trimVal.textContent = `${formatTime(startSec)} - ${formatTime(endSec)}`;
+  if (trimVal) trimVal.textContent = `${formatTime(startSec)} - ${formatTime(endSec)}`;
+}
+
+function setupVideoDurations(duration) {
+  const rounded = Math.floor(duration) || 30;
+  if (trimStart) trimStart.max = rounded;
+  if (trimEnd) {
+    trimEnd.max = rounded;
+    trimEnd.value = rounded;
+  }
+  updateTrimDisplay();
 }
 
 trimStart?.addEventListener('input', () => {
@@ -63,37 +99,32 @@ trimEnd?.addEventListener('change', processImage);
 
 bitrateSlider?.addEventListener('input', (e) => {
   const kbps = e.target.value;
-  bitrateVal.textContent = kbps > 2000 ? `High (${(kbps / 1000).toFixed(1)} Mbps)` : `Low (${kbps} kbps)`;
+  if (bitrateVal) {
+    bitrateVal.textContent = kbps > 2000 ? `High (${(kbps / 1000).toFixed(1)} Mbps)` : `Low (${kbps} kbps)`;
+  }
 });
-
-videoResSelect?.addEventListener('change', processImage);
 bitrateSlider?.addEventListener('change', processImage);
+videoResSelect?.addEventListener('change', processImage);
 
-let currentImg = null;
-let currentBlob = null;
-let currentFile = null;
-let originalName = 'image';
-let currentFormat = 'image/webp';
-let currentExtension = '.webp';
-let originalObjUrl = null;
+fpsSlider?.addEventListener('input', (e) => {
+  if (fpsVal) fpsVal.textContent = `${e.target.value} FPS`;
+});
+fpsSlider?.addEventListener('change', processImage);
 
-function formatBytes(bytes) {
-  if (!bytes || bytes === 0) return '0B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return (bytes / Math.pow(k, i)).toFixed(2) + sizes[i];
-}
-
-function updateConversionStatus(status) {
-  if (conversionStatus) conversionStatus.textContent = status;
-}
-
-compareRange.addEventListener('input', (e) => {
-  compareWrapper.style.setProperty('--pos', e.target.value + '%');
+qualitySlider?.addEventListener('input', (e) => {
+  if (qualityVal) qualityVal.textContent = e.target.value + '%';
+  processImage();
 });
 
-previewBtn.addEventListener('click', () => {
+effortSlider?.addEventListener('input', (e) => {
+  if (effortVal) effortVal.textContent = e.target.value;
+});
+
+compareRange?.addEventListener('input', (e) => {
+  compareWrapper?.style.setProperty('--pos', e.target.value + '%');
+});
+
+previewBtn?.addEventListener('click', () => {
   const isPreviewHidden = viewPreview.style.display === 'none';
   if (isPreviewHidden) {
     viewFormat.style.display = 'none';
@@ -106,12 +137,32 @@ previewBtn.addEventListener('click', () => {
   }
 });
 
-uploadBtn.addEventListener('click', () => fileInput.click());
+uploadBtn?.addEventListener('click', () => fileInput?.click());
 
 async function processVideo() {
-  const processingFile = currentBlob?.type?.startsWith('video/') ? currentBlob : currentFile;
+  const processingFile = currentFile;
   if (!processingFile || !processingFile.type.startsWith('video/')) return;
-  sizeConverted.textContent = formatBytes(processingFile.size);
+
+  const targetHeight = parseInt(videoResSelect?.value) || 720;
+  const targetFps = parseInt(fpsSlider?.value) || 15;
+  const start = Math.max(0, parseInt(trimStart?.value) || 0);
+  const end = Math.max(start + 0.1, parseInt(trimEnd?.value) || 30);
+  const kbps = parseInt(bitrateSlider?.value) || 1500;
+  const cacheKey = `${targetHeight}_${targetFps}_${start}_${end}_${kbps}`;
+
+  // Return cached result immediately if parameters match
+  if (videoCache[cacheKey]) {
+    currentBlob = videoCache[cacheKey];
+    sizeConverted.textContent = formatBytes(currentBlob.size);
+    updateConversionStatus('Done');
+    const blobUrl = URL.createObjectURL(currentBlob);
+    previewBottom.style.backgroundImage = `url('${blobUrl}')`;
+    if (compareConverted) compareConverted.style.backgroundImage = `url('${blobUrl}')`;
+    return;
+  }
+
+  updateConversionStatus('Encoding...');
+  sizeConverted.textContent = '0B';
 
   const video = document.createElement('video');
   const videoUrl = URL.createObjectURL(processingFile);
@@ -121,37 +172,35 @@ async function processVideo() {
 
   try {
     await new Promise((resolve, reject) => {
-      video.onloadedmetadata = resolve;
+      video.onloadedmetadata = () => resolve();
       video.onerror = () => reject(new Error('Unable to read this video.'));
     });
 
-    const requestedStart = Math.max(0, parseInt(trimStart.value) || 0);
-    const start = Math.min(requestedStart, Math.max(0, video.duration - 0.01));
-    const requestedEnd = parseInt(trimEnd.value) || video.duration;
-    const end = Math.min(video.duration, Math.max(start + 0.1, requestedEnd));
-    const targetHeight = parseInt(videoResSelect.value) || video.videoHeight;
     const scale = Math.min(1, targetHeight / video.videoHeight);
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(2, Math.round(video.videoWidth * scale));
-    canvas.height = Math.max(2, Math.round(video.videoHeight * scale));
+    canvas.width = Math.max(2, Math.round((video.videoWidth * scale) / 2) * 2);
+    canvas.height = Math.max(2, Math.round((video.videoHeight * scale) / 2) * 2);
 
     if (!canvas.captureStream || !video.captureStream || !window.MediaRecorder) {
       throw new Error('Video conversion is not supported in this browser.');
     }
 
-    const canvasStream = canvas.captureStream();
+    const canvasStream = canvas.captureStream(targetFps);
     const sourceStream = video.captureStream();
     sourceStream.getAudioTracks().forEach(track => canvasStream.addTrack(track));
+
     const mimeTypes = [
       'video/mp4;codecs=h264,aac',
       'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
       'video/webm'
     ];
-    const mimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
-    if (!mimeType) throw new Error('No supported video format is available.');
+    const mimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || 'video/webm';
+
     if (mimeType.startsWith('video/mp4')) {
       currentExtension = '.mp4';
+      labelBottom.textContent = '.MP4';
+      if (compareTagLeft) compareTagLeft.textContent = '.MP4';
     } else {
       currentExtension = '.webm';
       labelBottom.textContent = '.WEBM';
@@ -161,78 +210,156 @@ async function processVideo() {
     const chunks = [];
     const recorder = new MediaRecorder(canvasStream, {
       mimeType,
-      videoBitsPerSecond: parseInt(bitrateSlider.value) * 1000
+      videoBitsPerSecond: kbps * 1000
     });
-    let encodedSize = 0;
-    const recordingFinished = new Promise((resolve, reject) => {
-      recorder.ondataavailable = e => {
-        if (e.data.size) {
-          chunks.push(e.data);
-          encodedSize += e.data.size;
-          sizeConverted.textContent = formatBytes(encodedSize);
-        }
-      };
-      recorder.onerror = () => reject(new Error('Video recording failed.'));
+
+    let currentRecordedBytes = 0;
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) {
+        chunks.push(e.data);
+        currentRecordedBytes += e.data.size;
+        sizeConverted.textContent = formatBytes(currentRecordedBytes);
+      }
+    };
+
+    const recordingFinished = new Promise((resolve) => {
       recorder.onstop = resolve;
     });
 
-    await new Promise((resolve, reject) => {
-      const targetTime = Math.min(start, Math.max(0, video.duration - 0.01));
-      let settled = false;
-      const finishSeek = () => {
-        if (settled) return;
-        settled = true;
-        resolve();
-      };
-      video.onseeked = finishSeek;
-      video.onerror = () => reject(new Error('Unable to seek this video.'));
-      video.currentTime = targetTime;
-      if (Math.abs(video.currentTime - targetTime) < 0.01) {
-        requestAnimationFrame(finishSeek);
-      }
-    });
+    video.currentTime = start;
+    await new Promise(r => video.onseeked = r);
 
     const ctx = canvas.getContext('2d');
-    const recordingDuration = Math.max(0.1, end - start);
-    let recordingStartedAt = 0;
-    const drawFrame = () => {
-      const elapsed = (performance.now() - recordingStartedAt) / 1000;
-      if (elapsed >= recordingDuration || video.currentTime >= end || video.ended) {
+    recorder.start(100);
+    await video.play();
+
+    const renderLoop = () => {
+      if (video.currentTime >= end || video.paused || video.ended) {
         if (recorder.state !== 'inactive') recorder.stop();
+        video.pause();
         return;
       }
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      requestAnimationFrame(drawFrame);
+      requestAnimationFrame(renderLoop);
     };
 
-    recorder.start(250);
-    recordingStartedAt = performance.now();
-    await video.play();
-    drawFrame();
+    renderLoop();
     await recordingFinished;
 
     currentBlob = new Blob(chunks, { type: mimeType });
+    videoCache[cacheKey] = currentBlob;
     sizeConverted.textContent = formatBytes(currentBlob.size);
     updateConversionStatus('Done');
+
     const blobUrl = URL.createObjectURL(currentBlob);
     previewBottom.style.backgroundImage = `url('${blobUrl}')`;
-    compareConverted.style.backgroundImage = `url('${blobUrl}')`;
-  } catch (error) {
-    currentBlob = processingFile;
-    sizeConverted.textContent = formatBytes(processingFile.size);
-    updateConversionStatus('Done (original file)');
-    alert(error.message);
+    if (compareConverted) compareConverted.style.backgroundImage = `url('${blobUrl}')`;
+  } catch (err) {
+    updateConversionStatus('Failed');
+    alert(err.message);
   } finally {
-    video.pause();
     URL.revokeObjectURL(videoUrl);
   }
 }
 
-function processImage() {
+async function processImage() {
   if (currentFile?.type.startsWith('video/') && currentFormat === 'video/mp4') {
     processVideo();
     return;
   }
+
+  if (currentFile?.type.startsWith('video/') && currentExtension === '.gif') {
+    if (typeof gifshot === 'undefined') {
+      alert('GIF library is still loading, please wait a moment!');
+      return;
+    }
+
+    updateConversionStatus('Generating animated GIF...');
+    const videoUrl = URL.createObjectURL(currentFile);
+    const startSec = parseInt(trimStart?.value) || 0;
+    const endSec = parseInt(trimEnd?.value) || (startSec + 3);
+    const targetFps = parseInt(fpsSlider?.value) || 15;
+    const targetHeight = parseInt(videoResSelect?.value) || 720;
+    const quality = parseInt(qualitySlider?.value) || 100;
+
+    const duration = Math.max(0.5, Math.min(10, endSec - startSec));
+
+    const metadataVideo = document.createElement('video');
+    metadataVideo.src = videoUrl;
+    metadataVideo.muted = true;
+    await new Promise((resolve, reject) => {
+      metadataVideo.onloadedmetadata = resolve;
+      metadataVideo.onerror = () => reject(new Error('Unable to read this video.'));
+    });
+    const scale = Math.min(1, targetHeight / metadataVideo.videoHeight);
+    const gifWidth = Math.max(2, Math.round(metadataVideo.videoWidth * scale));
+    const gifHeight = Math.max(2, Math.round(metadataVideo.videoHeight * scale));
+    metadataVideo.removeAttribute('src');
+    metadataVideo.load();
+
+    gifshot.createGIF({
+      video: [videoUrl],
+      offset: startSec,
+      numFrames: Math.max(1, Math.round(duration * targetFps)),
+      gifWidth,
+      gifHeight,
+      interval: 1 / targetFps,
+      sampleInterval: Math.max(1, Math.round(101 - quality))
+    }, function (obj) {
+      URL.revokeObjectURL(videoUrl);
+      if (!obj.error) {
+        fetch(obj.image)
+          .then(res => res.blob())
+          .then(blob => {
+            currentBlob = blob;
+            sizeConverted.textContent = formatBytes(blob.size);
+            updateConversionStatus('Done');
+
+            const blobUrl = URL.createObjectURL(blob);
+            previewBottom.style.backgroundImage = `url('${blobUrl}')`;
+            if (compareConverted) compareConverted.style.backgroundImage = `url('${blobUrl}')`;
+          });
+      } else {
+        updateConversionStatus('GIF failed');
+        alert('Could not generate animated GIF from this video.');
+      }
+    });
+    return;
+  }
+
+  if (currentFile?.type.startsWith('video/') && currentFormat.startsWith('image/')) {
+    updateConversionStatus('Extracting frame...');
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(currentFile);
+    video.muted = true;
+
+    video.onloadedmetadata = () => {
+      const startSec = parseInt(trimStart?.value) || 0;
+      video.currentTime = Math.min(startSec, Math.max(0, video.duration - 0.1));
+    };
+
+    video.onseeked = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const quality = parseInt(qualitySlider.value) / 100;
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        currentBlob = blob;
+        sizeConverted.textContent = formatBytes(blob.size);
+        updateConversionStatus('Done');
+
+        const blobUrl = URL.createObjectURL(blob);
+        previewBottom.style.backgroundImage = `url('${blobUrl}')`;
+        if (compareConverted) compareConverted.style.backgroundImage = `url('${blobUrl}')`;
+      }, currentFormat, quality);
+    };
+    return;
+  }
+
   if (!currentImg) return;
 
   const canvas = document.createElement('canvas');
@@ -250,25 +377,14 @@ function processImage() {
     updateConversionStatus('Done');
 
     const blobUrl = URL.createObjectURL(blob);
-    const bgStyle = `url('${blobUrl}')`;
-
-    previewBottom.style.backgroundImage = bgStyle;
-    compareConverted.style.backgroundImage = bgStyle;
+    previewBottom.style.backgroundImage = `url('${blobUrl}')`;
+    if (compareConverted) compareConverted.style.backgroundImage = `url('${blobUrl}')`;
   }, currentFormat, quality);
 }
 
-qualitySlider.addEventListener('input', (e) => {
-  qualityVal.textContent = e.target.value + '%';
-  processImage();
-});
-
-effortSlider.addEventListener('input', (e) => {
-  effortVal.textContent = e.target.value;
-});
-
-downloadBtn.addEventListener('click', () => {
+downloadBtn?.addEventListener('click', () => {
   if (!currentBlob) {
-    alert('Please upload an image first!');
+    alert('Please upload a file first!');
     return;
   }
   const url = URL.createObjectURL(currentBlob);
@@ -281,29 +397,19 @@ downloadBtn.addEventListener('click', () => {
   setTimeout(() => updateConversionStatus('Ready'), 1000);
 });
 
-const searchBar = document.querySelector('.search-bar');
-
-searchBar.addEventListener('input', (e) => {
+searchBar?.addEventListener('input', (e) => {
   const query = e.target.value.trim().toLowerCase();
-
   formatBtns.forEach(btn => {
     const text = btn.textContent.toLowerCase();
-    if (text.includes(query)) {
-      btn.style.display = 'inline-block';
-    } else {
-      btn.style.display = 'none';
-    }
+    btn.style.display = text.includes(query) ? 'inline-block' : 'none';
   });
 });
-
-const pasteBtn = document.getElementById('paste-btn');
 
 function handleIncomingImage(file) {
   if (!file) return;
   currentFile = file;
-  updateConversionStatus('Initializing...');
+  updateConversionStatus('Ready');
 
-  // 1. Extract file name and extension
   const dotIdx = file.name ? file.name.lastIndexOf('.') : -1;
   originalName = (file.name && dotIdx !== -1) ? file.name.substring(0, dotIdx) : 'uploaded-file';
   
@@ -311,14 +417,12 @@ function handleIncomingImage(file) {
     ? file.name.substring(dotIdx).toUpperCase() 
     : '.' + (file.type ? file.type.split('/')[1].toUpperCase() : 'FILE');
 
-  // 2. Update sidebar header & stats
   labelTop.textContent = inputExt;
   if (compareTagRight) compareTagRight.textContent = inputExt;
   sizeOriginal.textContent = formatBytes(file.size);
 
   originalObjUrl = URL.createObjectURL(file);
 
-  // 3. Handle Images vs Other Media
   if (file.type.startsWith('image/')) {
     const bgStyle = `url('${originalObjUrl}')`;
     previewTop.style.backgroundImage = bgStyle;
@@ -327,6 +431,22 @@ function handleIncomingImage(file) {
     currentImg = new Image();
     currentImg.src = originalObjUrl;
     currentImg.onload = () => processImage();
+  } else if (file.type.startsWith('video/')) {
+    // Treat original video as output instantly without immediate auto-encoding
+    currentBlob = file;
+    sizeConverted.textContent = formatBytes(file.size);
+    updateConversionStatus('Done');
+
+    const tempVideo = document.createElement('video');
+    tempVideo.src = originalObjUrl;
+    tempVideo.onloadedmetadata = () => {
+      setupVideoDurations(tempVideo.duration);
+    };
+
+    previewTop.style.backgroundImage = 'none';
+    previewBottom.style.backgroundImage = 'none';
+    if (compareOriginal) compareOriginal.style.backgroundImage = 'none';
+    if (compareConverted) compareConverted.style.backgroundImage = 'none';
   } else {
     currentImg = null;
     currentBlob = file;
@@ -336,17 +456,14 @@ function handleIncomingImage(file) {
     previewBottom.style.backgroundImage = 'none';
     if (compareOriginal) compareOriginal.style.backgroundImage = 'none';
     if (compareConverted) compareConverted.style.backgroundImage = 'none';
-    if (file.type.startsWith('video/') && currentFormat === 'video/mp4') {
-      processVideo();
-    }
   }
 }
 
-pasteBtn.addEventListener('click', async () => {
+pasteBtn?.addEventListener('click', async () => {
   try {
     const clipboardItems = await navigator.clipboard.read();
     for (const item of clipboardItems) {
-      const type = item.types.find(type => type.startsWith('image/')) || item.types[0];
+      const type = item.types.find(t => t.startsWith('image/')) || item.types[0];
       if (type) {
         const blob = await item.getType(type);
         handleIncomingImage(blob);
@@ -362,7 +479,6 @@ pasteBtn.addEventListener('click', async () => {
 window.addEventListener('paste', (e) => {
   const items = e.clipboardData?.items;
   if (!items) return;
-
   for (const item of items) {
     const file = item.getAsFile();
     if (file) {
@@ -372,7 +488,7 @@ window.addEventListener('paste', (e) => {
   }
 });
 
-fileInput.addEventListener('change', (e) => {
+fileInput?.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (file) handleIncomingImage(file);
 });

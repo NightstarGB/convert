@@ -32,7 +32,7 @@
         </button>
       </div>
 
-     <input type="file" id="fileInput" accept="image/*,video/*,audio/*,.txt" style="display: none;">  
+      <input type="file" id="fileInput" accept="image/*,video/*,audio/*,.txt" style="display: none;">  
          
       <div class="preview-wrapper">
         <span class="preview-label" id="label-top">.PNG</span>
@@ -89,14 +89,25 @@
           <select id="video-res-select" class="styled-select">
             <option value="1080">1080p (FHD)</option>
             <option value="720" selected>720p (HD)</option>
-            <option value="144">144p (Fast)</option>
+            <option value="480">480p (SD)</option>
+            <option value="360">360p (Low)</option>
+            <option value="240">240p (Very Low)</option>
+            <option value="144">144p (Potato)</option>
           </select>
         </div>
 
+        <label style="margin-top: 6px;">FRAME RATE (FPS)</label>
+        <div class="slider-container">
+          <span class="slider-value" id="fps-val">15 FPS</span>
+          <input type="range" class="styled-slider" id="fps-slider" min="1" max="30" value="15">
+        </div>
+
         <label style="margin-top: 6px;">TRIM (<span id="trim-val">0:00 - 0:30</span>)</label>
-        <div class="slider-container dual-range-box">
-          <input type="range" id="trim-start" min="0" max="60" value="0" class="styled-slider">
-          <input type="range" id="trim-end" min="0" max="60" value="30" class="styled-slider">
+        <div class="slider-container">
+          <div class="dual-range-box">
+            <input type="range" id="trim-start" min="0" max="60" value="0">
+            <input type="range" id="trim-end" min="0" max="60" value="30">
+          </div>
         </div>
 
         <label style="margin-top: 6px;">REDUCE SIZE</label>
@@ -171,6 +182,7 @@
 
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.3.2/gifshot.min.js"></script>
   <script src="convert.js"></script>
   <script src="settings.js"></script>
 </body>

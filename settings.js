@@ -11,7 +11,6 @@ formatBtns.forEach(btn => {
     labelBottom.textContent = ext.toUpperCase();
     if (compareTagLeft) compareTagLeft.textContent = ext.toUpperCase();
 
-    // Default visibility resets
     qualityGroup.classList.add('hidden');
     effortGroup.classList.add('hidden');
     mp4Controls.classList.add('hidden');
@@ -25,13 +24,17 @@ formatBtns.forEach(btn => {
       effortGroup.classList.remove('hidden');
     } else if (ext === '.mp4') {
       currentFormat = 'video/mp4';
-      mp4Controls.classList.remove('hidden'); // Reveal Video Settings
+      mp4Controls.classList.remove('hidden');
     } else if (ext === '.mp3') {
       currentFormat = 'audio/mp3';
     } else if (ext === '.txt') {
       currentFormat = 'text/plain';
     } else if (ext === '.gif') {
       currentFormat = 'image/gif';
+      qualityGroup.classList.remove('hidden');
+      if (currentFile?.type.startsWith('video/')) {
+        mp4Controls.classList.remove('hidden');
+      }
     } else if (ext === '.tiff') {
       currentFormat = 'image/tiff';
     } else if (ext === '.psd') {
