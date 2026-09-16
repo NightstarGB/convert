@@ -165,6 +165,14 @@ body {
   text-align: center;
 }
 
+.conversion-status.error {
+  color: #f87171;
+  border: 1px solid #7f1d1d;
+  background: #1f0b0b;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
 .slider-container {
   background-color: #000;
   border: 1px solid #27272a;
@@ -324,20 +332,22 @@ body {
 
 .format-grid {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .format-btn {
   background-color: #000;
   border: 1px solid #27272a;
   color: #fff;
-  padding: 12px 24px;
+  padding: 10px 16px;
   font-size: 16px;
   font-weight: bold;
   border-radius: 4px;
   cursor: pointer;
-  min-width: 110px;
+  min-width: 96px;
+  max-width: 100%;
   transition: all 0.2s ease-in-out;
 }
 .format-btn:hover {
